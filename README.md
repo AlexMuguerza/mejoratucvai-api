@@ -1,3 +1,8 @@
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+
+> Este proyecto está bajo la licencia AGPL v3. Si lo usas, modificas o despliegas
+> como servicio, debes publicar el código fuente y dar crédito al proyecto original.
+
 # mejoratucvai-api
 
 API de análisis de CVs con Gemini. Servicio stateless que recibe PDFs, extrae texto con `unpdf`, y devuelve análisis JSON generado por modelos Gemini en round-robin.

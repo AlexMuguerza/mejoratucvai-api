@@ -56,8 +56,26 @@ const MARKET_CONTEXT: Record<Market, string> = {
 }
 
 function buildPrompts(cvText: string, market: Market, role: string) {
-  const system = `Eres un experto en reclutamiento y optimización de CVs para el mercado latinoamericano.
+  const system = `Eres un experto senior en reclutamiento y optimización de CVs para el mercado latinoamericano.
 Contexto del mercado objetivo: ${MARKET_CONTEXT[market]}
+
+Objetivo de evaluación:
+- Sé exigente, directo y honesto. No suavices críticas.
+- Prioriza empleabilidad real y filtro ATS por encima de estilo superficial.
+- Si falta evidencia en el CV, penaliza. No asumas ni inventes información.
+
+Rúbrica estricta de scoring (0-100):
+- Base inicial: 55 (no 70).
+- Resta puntos por: logros sin métricas, bullets genéricos, desorden, falta de keywords del rol, mala legibilidad ATS, errores de redacción.
+- Suma puntos solo por evidencia concreta (impacto cuantificado, resultados, claridad, relevancia al rol, consistencia).
+- No des score > 85 salvo que el CV sea claramente sobresaliente con evidencia sólida en varias secciones.
+- No des score > 75 si faltan métricas de impacto en experiencia laboral.
+
+Profundidad del feedback:
+- Detecta debilidades críticas primero y ordénalas por impacto en contratación.
+- Cada feedback debe ser accionable y específico (qué cambiar y cómo).
+- Evita consejos vagos como "mejorar redacción" sin ejemplo concreto.
+- Evalúa adecuación al mercado ${market} y al rol objetivo cuando exista.
 
 RESPONDE ÚNICAMENTE CON JSON VÁLIDO. Sin markdown. Sin bloques de código. Sin texto fuera del JSON.
 Estructura exacta:
@@ -67,7 +85,7 @@ Estructura exacta:
   "sections": {
     "<nombre_seccion>": {
       "score": <entero 0-100>,
-      "feedback": "<qué está bien y qué mejorar>"
+      "feedback": "<qué está bien y qué mejorar, incluyendo acciones concretas>"
     }
   },
   "top_issues": ["<problema 1>", "<problema 2>", "<problema 3>"],
@@ -75,10 +93,17 @@ Estructura exacta:
   "market_fit": "<evaluación específica para el mercado ${market}>",
   "ats_score": <entero 0-100>,
   "ats_tips": ["<tip 1>", "<tip 2>"]
-}`
+}
+
+Reglas adicionales obligatorias:
+- "top_issues" debe incluir exactamente 3 problemas, severos y priorizados.
+- "strengths" debe incluir exactamente 2 fortalezas reales, no genéricas.
+- "ats_tips" debe incluir exactamente 2 mejoras concretas orientadas a pasar filtros automáticos.
+- Si el candidato parece junior, mantén exigencia alta pero adapta recomendaciones para elevar su perfil.`
 
   const roleText = role ? ` para el puesto de ${role}` : ""
-  const user = `Analiza este CV${roleText}. Mercado objetivo: ${market}
+  const user = `Analiza este CV${roleText}. Mercado objetivo: ${market}.
+Haz una evaluación estricta enfocada en aumentar la probabilidad real de entrevistas.
 
 TEXTO DEL CV:
 ---
@@ -102,8 +127,8 @@ async function handleAnalyze(request: Request): Promise<Response> {
   const start = Date.now()
 
   // Seguridad
-  if (!validateIP(request)) return json({ error: "Forbidden" }, 403)
-  if (!validateSecret(request)) return json({ error: "Unauthorized" }, 401)
+  //if (!validateIP(request)) return json({ error: "Forbidden" }, 403)
+  if (!validateSecret(request)) return json({ error: "Unauthorized, Solo puede acceder al api desde el front" }, 401)
 
   // Parsear FormData
   let formData: FormData

@@ -1,0 +1,17 @@
+{
+  "name": "mejoratucvai-api",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "bun run --hot src/index.ts",
+    "start": "bun run src/index.ts"
+  },
+  "dependencies": {
+    "unpdf": "^1.4.0",
+    "@google/generative-ai": "^0.24.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5"
+  }
+}

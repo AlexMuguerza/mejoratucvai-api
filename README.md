@@ -5,7 +5,12 @@
 
 # mejoratucvai-api
 
-API de análisis de CVs con Gemini. Servicio stateless que recibe PDFs, extrae texto con `unpdf`, y devuelve análisis JSON generado por modelos Gemini en round-robin.
+API de análisis de CVs con Gemini. Servicio stateless que recibe PDFs, extrae texto con `unpdf`, y devuelve análisis JSON.
+
+El servicio soporta 2 modos:
+
+- **Round-robin interno** con la API key del servidor (`GEMINI_API_KEY`).
+- **API key del usuario** (`user_api_key`) para ejecutar el análisis con su propia cuota.
 
 ## Tabla de Variables de Entorno
 
@@ -52,25 +57,48 @@ curl -X POST http://localhost:8000/analyze \
   -H "X-API-Secret: tu_secret_aqui" \
   -F "file=@cv.pdf" \
   -F "market=PE" \
-  -F "role=Desarrollador Senior"
+  -F "role=Desarrollador Senior" \
+  -F "user_api_key=AIza..."
 ```
 
-## Round-Robin Gemini
+## Modos de Gemini
+
+### 1) Con API key del usuario (`user_api_key`)
+
+- Se crea un cliente temporal con la key enviada.
+- Se usa directamente el modelo `gemini-2.5-flash-lite` (sin round-robin).
+- Manejo de errores:
+  - 401/403 → `API key inválida o sin permisos`
+  - 429 → `Tu API key alcanzó su límite de cuota`
+
+### 2) Sin API key del usuario
+
+Se usa el comportamiento de round-robin con la key del servidor.
+
+## Round-Robin interno
 
 El servicio rota entre modelos gratuitos para maximizar la cuota disponible:
 
 | Modelo | RPM | RPD | Prioridad |
 |--------|-----|-----|-----------|
-| `gemini-2.5-flash-lite-preview-06-17` | 15 | 1,000 | 1 |
-| `gemini-2.5-flash` | 10 | 250 | 2 |
-| `gemini-2.5-pro` | 5 | 100 | 3 |
+| `gemini-2.5-flash-lite` | 10 | 20 | 1 |
+| `gemini-2.5-flash` | 5 | 20 | 2 |
+| `gemini-2.5-pro` | 5 | 20 | 3 |
 
-**Total aproximado: ~1,350 solicitudes/día gratis sin tarjeta**
+**Total aproximado actual: ~60 solicitudes/día (según límites configurados en código).**
 
 El sistema implementa:
 - Reset automático de contadores por minuto y por día
 - Backoff exponencial tras errores 429
 - Retry automático entre modelos
+
+## Calidad del análisis
+
+El prompt de sistema usa una evaluación estricta para mejorar la calidad del feedback:
+
+- Penaliza fuertemente CVs sin evidencia, sin métricas o con contenido genérico.
+- Prioriza señales de empleabilidad real y legibilidad ATS.
+- Obliga recomendaciones accionables y priorizadas por impacto.
 
 ## Endpoints
 
@@ -87,6 +115,7 @@ Analiza un CV PDF.
 - `file`: Archivo PDF (requerido)
 - `market`: Mercado objetivo `PE|MX|CO|AR` (default: `PE`)
 - `role`: Puesto al que aplica (opcional)
+- `user_api_key`: API key de Gemini del usuario (opcional)
 
 **Respuesta:**
 ```json

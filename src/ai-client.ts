@@ -55,6 +55,50 @@ export class GeminiRoundRobin {
     ]
   }
 
+  private getErrorStatus(error: any): number | null {
+    const candidates = [
+      error?.status,
+      error?.statusCode,
+      error?.response?.status,
+      error?.response?.statusCode,
+    ]
+
+    for (const value of candidates) {
+      if (typeof value === "number") return value
+      if (typeof value === "string" && /^\d+$/.test(value)) {
+        return Number(value)
+      }
+    }
+
+    return null
+  }
+
+  private isAuthError(error: any): boolean {
+    const status = this.getErrorStatus(error)
+    if (status === 401 || status === 403) return true
+
+    const message = String(error?.message ?? "").toLowerCase()
+    return (
+      message.includes("401") ||
+      message.includes("403") ||
+      message.includes("unauth") ||
+      message.includes("permission") ||
+      message.includes("api key")
+    )
+  }
+
+  private isQuotaError(error: any): boolean {
+    const status = this.getErrorStatus(error)
+    if (status === 429) return true
+
+    const message = String(error?.message ?? "").toLowerCase()
+    return (
+      message.includes("429") ||
+      message.includes("quota") ||
+      message.includes("rate limit")
+    )
+  }
+
   private resetCountersIfNeeded(slot: ModelSlot): void {
     const now = Date.now()
     // Reset por minuto
@@ -94,8 +138,36 @@ export class GeminiRoundRobin {
   async generate(
     prompt: string,
     system: string,
-    maxTokens: number
+    maxTokens: number,
+    userApiKey?: string
   ): Promise<{ text: string; modelUsed: string }> {
+    if (userApiKey) {
+      const modelName = "gemini-2.5-flash-lite"
+      const tempGenAI = new GoogleGenerativeAI(userApiKey)
+
+      try {
+        const model = tempGenAI.getGenerativeModel({
+          model: modelName,
+          systemInstruction: system,
+        })
+
+        const result = await model.generateContent({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: { maxOutputTokens: maxTokens, temperature: 0.3 },
+        })
+
+        return { text: result.response.text(), modelUsed: modelName }
+      } catch (e: any) {
+        if (this.isAuthError(e)) {
+          throw new Error("API key inválida o sin permisos")
+        }
+        if (this.isQuotaError(e)) {
+          throw new Error("Tu API key alcanzó su límite de cuota")
+        }
+        throw e
+      }
+    }
+
     const MAX_CYCLES = 3
 
     for (let cycle = 0; cycle < MAX_CYCLES; cycle++) {

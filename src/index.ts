@@ -141,6 +141,7 @@ async function handleAnalyze(request: Request): Promise<Response> {
   const file = formData.get("file") as File | null
   const market = (formData.get("market") as Market) || "PE"
   const role = (formData.get("role") as string) || ""
+  const userApiKey = (formData.get("user_api_key") as string | null)?.trim() || null
 
   // Validar archivo
   if (!file) return json({ error: "Se requiere un archivo PDF" }, 400)
@@ -165,7 +166,12 @@ async function handleAnalyze(request: Request): Promise<Response> {
   let geminiText: string
   let modelUsed: string
   try {
-    const result = await getAIClient().generate(user, system, 2048)
+    const result = await getAIClient().generate(
+      user,
+      system,
+      2048,
+      userApiKey ?? undefined
+    )
     geminiText = result.text
     modelUsed = result.modelUsed
   } catch (e: any) {
